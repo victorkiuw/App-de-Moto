@@ -23,7 +23,7 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 // eslint-disable-next-line import/first
-import Configuracion from '../configuracion';
+import Configuracion from '@/app/configuracion';
 // eslint-disable-next-line import/first
 import { router as mockRouter } from 'expo-router';
 

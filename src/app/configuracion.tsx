@@ -219,10 +219,10 @@ export default function Configuracion() {
     }
   }
 
-  if (!cargado) return <Pantalla>{null}</Pantalla>;
+  if (!cargado) return <Pantalla sinPestanas>{null}</Pantalla>;
 
   return (
-    <Pantalla>
+    <Pantalla sinPestanas>
       <Texto variante="titulo">Configuración inicial</Texto>
       <Texto variante="secundario">
         Si no sabes un dato exacto, pon un aproximado. Todo se puede rehacer después desde Ajustes.

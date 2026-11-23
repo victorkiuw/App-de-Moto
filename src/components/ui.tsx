@@ -14,7 +14,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColores } from '@/theme/colores';
 
-export function Pantalla({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
+/**
+ * Contenedor de pantalla. `sinPestanas` deja espacio abajo para los botones de
+ * navegación de Android en pantallas que no tienen la barra de pestañas.
+ */
+export function Pantalla({
+  children,
+  scroll = true,
+  sinPestanas = false,
+}: {
+  children: ReactNode;
+  scroll?: boolean;
+  sinPestanas?: boolean;
+}) {
   const c = useColores();
   const contenido = scroll ? (
     <ScrollView contentContainerStyle={estilos.contenido}>{children}</ScrollView>
@@ -22,7 +34,7 @@ export function Pantalla({ children, scroll = true }: { children: ReactNode; scr
     <View style={[estilos.contenido, { flex: 1 }]}>{children}</View>
   );
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.fondo }}>
+    <SafeAreaView edges={sinPestanas ? ['top', 'bottom'] : ['top']} style={{ flex: 1, backgroundColor: c.fondo }}>
       {contenido}
     </SafeAreaView>
   );
