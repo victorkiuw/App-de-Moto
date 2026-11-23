@@ -12,8 +12,8 @@ Funciona sin internet. El mapa y la descarga de la tasa usan internet cuando hay
 
 | Fase | Alcance | Estado |
 | --- | --- | --- |
-| 1 | Proyecto, base de datos, catálogo, lógica y pruebas | ✅ Lista |
-| 2 | GPS en segundo plano y filtro de parada | ⏳ |
+| 1 | Proyecto, base de datos, catálogo, lógica, pruebas y asistente de configuración | ✅ Lista |
+| 2 | GPS en segundo plano y filtro de parada | ✅ Lista (falta probar en la calle) |
 | 3 | Consumo y odómetros conectados al viaje | ⏳ (la lógica ya está hecha) |
 | 4 | Cockpit, semáforos, mantenimiento, ajustes editables, mapa | ⏳ |
 | 5 | Pruebas en la calle y APK final | ⏳ |
@@ -32,6 +32,7 @@ Cada versión nueva se instala encima de la anterior sin perder datos, porque si
 src/
   domain/      Lógica pura: Haversine, filtro GPS, combustible, semáforo, moneda, formato
   data/        SQLite: esquema y migraciones, catálogo, moto, piezas, viajes, tanqueos, respaldo
+  gps/         Tarea de GPS en segundo plano, permisos y estado en vivo de la rodada
   services/    Tasa BCV (DolarAPI)
   app/         Pantallas (expo-router): Cockpit, Salud, Historial, Ajustes
   components/  Componentes de interfaz
@@ -47,6 +48,13 @@ src/
 - **Filtro GPS:** se descartan las lecturas con precisión peor que 25 m y los saltos imposibles (más de 160 km/h). El odómetro se pausa por debajo de 3 km/h.
 - **Respaldo:** se exporta e importa un JSON con todos los datos. La importación ocurre en una sola transacción: si falla, no se pierde nada.
 - **Estilos:** se usa `StyleSheet` nativo en lugar de NativeWind para evitar incompatibilidades con Expo SDK 58.
+
+## GPS en segundo plano
+
+- `index.ts` registra la tarea del GPS antes que cualquier pantalla: Android puede despertar la app solo para entregarle lecturas.
+- La tarea usa su propia conexión a SQLite. Las transacciones usan `BEGIN IMMEDIATE` y `busy_timeout`, así el GPS y la pantalla no chocan.
+- El odómetro de la rodada se guarda después de cada lote (tabla `rastreo_estado`). Si Android mata el servicio, al abrir la app se puede reanudar sin perder km.
+- En Xiaomi/Poco hay que poner la batería de la app en "Sin restricciones" (ver Ajustes).
 
 ## Desarrollo
 

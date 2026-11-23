@@ -2,14 +2,14 @@
   "expo": {
     "name": "Moto SBR 150",
     "slug": "moto-sbr150",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "motosbr150",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.motosbr150.telemetria",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#111418",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

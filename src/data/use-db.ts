@@ -1,14 +1,16 @@
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { Db } from './db';
+import { adaptarExpo } from './expo-db';
 import { useRefresco } from '@/state/refresco';
 
-export const NOMBRE_BD = 'moto-sbr150.db';
+export { NOMBRE_BD } from './expo-db';
 
 /** La BD abierta por <SQLiteProvider>, vista con la interfaz de la capa de datos. */
 export function useDb(): Db {
-  return useSQLiteContext();
+  const sqlite = useSQLiteContext();
+  return useMemo(() => adaptarExpo(sqlite), [sqlite]);
 }
 
 /**

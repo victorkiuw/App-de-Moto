@@ -10,6 +10,8 @@ export interface LecturaGps {
   precisionM: number | null;
   /** Velocidad reportada por el GPS en m/s (null o negativa si no está disponible). */
   velocidadMs: number | null;
+  /** Altitud en metros, si el GPS la reporta (solo se guarda, no se usa para medir). */
+  altitudM?: number | null;
 }
 
 export interface ParametrosFiltro {

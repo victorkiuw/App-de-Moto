@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { inicializarBaseDatos } from '@/data/esquema';
-import { NOMBRE_BD } from '@/data/use-db';
+import { adaptarExpo, NOMBRE_BD } from '@/data/expo-db';
 import { useColores } from '@/theme/colores';
 
 /**
@@ -15,7 +15,7 @@ export default function RootLayout() {
   const c = useColores();
   return (
     <SafeAreaProvider>
-      <SQLiteProvider databaseName={NOMBRE_BD} onInit={inicializarBaseDatos}>
+      <SQLiteProvider databaseName={NOMBRE_BD} onInit={(db) => inicializarBaseDatos(adaptarExpo(db))}>
         <StatusBar style="auto" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.fondo } }}>
           <Stack.Screen name="(tabs)" />

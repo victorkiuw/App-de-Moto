@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import { Linking } from 'react-native';
 
 import { Boton, Fila, Pantalla, Tarjeta, Texto } from '@/components/ui';
 import { obtenerAjustes } from '@/data/ajustes';
@@ -53,6 +54,21 @@ export default function Ajustes() {
         <Fila etiqueta="Reserva de gasolina" valor={siNo(ajustes.notifReserva)} />
         <Fila etiqueta="Pieza en alerta" valor={siNo(ajustes.notifPiezaAlerta)} />
         <Fila etiqueta="Pieza vencida" valor={siNo(ajustes.notifPiezaVencida)} />
+      </Tarjeta>
+
+      <Tarjeta>
+        <Texto variante="subtitulo">Batería (importante en Xiaomi / Poco)</Texto>
+        <Texto variante="secundario">
+          HyperOS cierra las apps en segundo plano para ahorrar batería y eso corta el GPS con la pantalla
+          apagada. Para evitarlo, en la información de la app:
+        </Texto>
+        <Texto>1. Ahorro de batería → Sin restricciones</Texto>
+        <Texto>2. Inicio automático → Activado</Texto>
+        <Texto>3. Permisos → Ubicación → Permitir todo el tiempo</Texto>
+        <Texto variante="secundario">
+          También ayuda bloquear la app en Recientes (mantén presionada la tarjeta → candado).
+        </Texto>
+        <Boton texto="Abrir ajustes de la app" tipo="secundario" onPress={() => Linking.openSettings()} />
       </Tarjeta>
 
       <Tarjeta>

@@ -122,6 +122,18 @@ CREATE TABLE ajuste_odometro (
 );
 `,
   },
+  {
+    // Fase 2: estado del odómetro de la rodada en curso (sobrevive si Android cierra la app).
+    version: 2,
+    sql: `
+CREATE TABLE rastreo_estado (
+  id              INTEGER PRIMARY KEY CHECK (id = 1),
+  viaje_id        INTEGER NOT NULL REFERENCES viaje (id) ON DELETE CASCADE,
+  estado_json     TEXT    NOT NULL,
+  actualizado_en  TEXT    NOT NULL
+);
+`,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version;
@@ -130,6 +142,8 @@ export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version;
 export async function inicializarBaseDatos(db: Db): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON;');
   await db.execAsync('PRAGMA journal_mode = WAL;');
+  // El GPS escribe desde otra conexión: si la BD está ocupada, esperar en vez de fallar.
+  await db.execAsync('PRAGMA busy_timeout = 5000;');
 
   const fila = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version', []);
   let actual = fila?.user_version ?? 0;
