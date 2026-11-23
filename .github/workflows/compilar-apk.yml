@@ -1,0 +1,91 @@
+# Compila el APK de Android en los servidores de GitHub (gratis, sin computadora).
+#
+# Cómo usarlo desde el teléfono:
+#   1. Abre el repositorio en github.com → pestaña "Actions".
+#   2. Elige "Compilar APK" → botón "Run workflow" → elige la rama → "Run workflow".
+#   3. Espera ~15–25 min. Al terminar, el APK aparece en la sección "Releases"
+#      del repositorio, listo para descargar e instalar.
+name: Compilar APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      notas:
+        description: 'Qué cambió en esta versión (opcional)'
+        required: false
+        default: ''
+
+concurrency:
+  group: compilar-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar tipos y pruebas
+        run: |
+          npx tsc --noEmit
+          npx jest --ci
+
+      - name: Generar proyecto nativo Android
+        run: npx expo prebuild --platform android --no-install
+        env:
+          CI: 1
+
+      # Solo arm64-v8a (todos los teléfonos actuales, incluido el Poco X7 Pro):
+      # compila más rápido y el APK pesa menos.
+      - name: Compilar APK release
+        working-directory: android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - name: Preparar archivo
+        id: apk
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          NOMBRE="MotoSBR150-v${VERSION}-build${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$NOMBRE"
+          echo "nombre=$NOMBRE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTAS: ${{ inputs.notas }}
+        run: |
+          TAG="apk-v${{ steps.apk.outputs.version }}-build${{ github.run_number }}"
+          CUERPO="Rama: ${{ github.ref_name }} · Commit: ${GITHUB_SHA::7}"
+          if [ -n "$NOTAS" ]; then CUERPO="$NOTAS"$'\n\n'"$CUERPO"; fi
+          gh release create "$TAG" "${{ steps.apk.outputs.nombre }}" \
+            --target "$GITHUB_SHA" \
+            --title "Moto SBR 150 v${{ steps.apk.outputs.version }} (build ${{ github.run_number }})" \
+            --notes "$CUERPO" \
+            --prerelease
+
+      - name: Guardar también como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.nombre }}
+          path: ${{ steps.apk.outputs.nombre }}
+          retention-days: 14
