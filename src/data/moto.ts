@@ -103,6 +103,8 @@ export interface ConfiguracionInicial {
   kmDesdeUltimoTanqueo: number;
   /** Para cada pieza, cuántos km lleva desde su último servicio. Las omitidas quedan en 0. */
   kmDesdeServicioPorPieza: Record<string, number>;
+  /** Fecha (aaaa-mm-dd) del último servicio de cada pieza, si se conoce. */
+  fechaServicioPorPieza?: Record<string, string>;
 }
 
 /**
@@ -132,17 +134,23 @@ export async function aplicarConfiguracionInicial(db: Db, c: ConfiguracionInicia
     for (const { id } of piezas) {
       const kmDesde = Math.max(0, c.kmDesdeServicioPorPieza[id] ?? 0);
       const odoCambio = Math.max(0, odo - kmDesde);
+      const fecha = c.fechaServicioPorPieza?.[id] ?? null;
       await db.runAsync(
-        `UPDATE pieza_monitoreo SET odometro_ultimo_cambio_km = ?, fecha_ultimo_cambio = NULL,
+        `UPDATE pieza_monitoreo SET odometro_ultimo_cambio_km = ?, fecha_ultimo_cambio = ?,
                 ultimo_estado_notificado = 'OK' WHERE id = ?`,
-        [odoCambio, id],
+        [odoCambio, fecha, id],
       );
       await db.runAsync('DELETE FROM historial_servicio WHERE pieza_id = ? AND es_registro_inicial = 1', [id]);
       await db.runAsync(
         `INSERT INTO historial_servicio
            (pieza_id, fecha_servicio, km_al_momento_servicio, observaciones, es_registro_inicial)
          VALUES (?, ?, ?, ?, 1)`,
-        [id, ahora, odoCambio, `Estado inicial: ${kmDesde} km desde el último servicio`],
+        [
+          id,
+          fecha ?? ahora,
+          odoCambio,
+          `Estado inicial: ${Math.round(kmDesde)} km desde el último servicio${fecha ? ' (estimado por fecha)' : ''}`,
+        ],
       );
     }
   });

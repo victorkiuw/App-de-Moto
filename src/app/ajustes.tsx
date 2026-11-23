@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 
-import { Fila, Pantalla, Tarjeta, Texto } from '@/components/ui';
+import { Boton, Fila, Pantalla, Tarjeta, Texto } from '@/components/ui';
 import { obtenerAjustes } from '@/data/ajustes';
 import { VERSION_ESQUEMA } from '@/data/esquema';
 import { obtenerMoto } from '@/data/moto';
@@ -26,6 +27,12 @@ export default function Ajustes() {
         <Fila etiqueta="Alerta de reserva" valor={formatearKm(moto.kmAlertaReserva, 0)} />
         <Fila etiqueta="Consumo de fábrica" valor={`${formatearNumero(moto.factorConsumoFabricaLKm, 3)} L/km`} />
         <Fila etiqueta="Aprender consumo real" valor={siNo(moto.usarConsumoReal)} />
+        <Fila etiqueta="Kilometraje" valor={formatearKm(moto.odometroTotalKm, 0)} />
+        <Boton
+          texto={moto.configuracionCompleta ? 'Rehacer configuración inicial' : 'Configurar mi moto'}
+          tipo={moto.configuracionCompleta ? 'secundario' : 'principal'}
+          onPress={() => router.push('/configuracion')}
+        />
       </Tarjeta>
 
       <Tarjeta>

@@ -1,4 +1,5 @@
 import { ahoraIso, Db } from './db';
+import type { DatosEstimacion, EntradaPieza } from '@/domain/asistente';
 
 /**
  * Preferencias del usuario. Se guardan como clave/valor para poder agregar
@@ -24,6 +25,17 @@ export interface Ajustes {
 
   /** Mostrar mapa (requiere internet para los mosaicos). */
   mapaActivo: boolean;
+
+  /** Datos del asistente de configuración inicial, para poder rehacerlo sin reescribir todo. */
+  asistente: DatosAsistente | null;
+}
+
+export interface DatosAsistente extends DatosEstimacion {
+  kmDesdeTanqueo: number;
+  /** Lectura que quedó congelada en el tablero y su fecha (opcional). */
+  lecturaCongeladaKm: number | null;
+  fechaLecturaCongelada: string | null;
+  piezas: Record<string, EntradaPieza>;
 }
 
 export const AJUSTES_POR_DEFECTO: Ajustes = {
@@ -38,6 +50,7 @@ export const AJUSTES_POR_DEFECTO: Ajustes = {
   filtroVelocidadMinKmh: 3,
   filtroPrecisionMaxM: 25,
   mapaActivo: true,
+  asistente: null,
 };
 
 type Clave = keyof Ajustes;

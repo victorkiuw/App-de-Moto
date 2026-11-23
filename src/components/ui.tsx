@@ -1,5 +1,15 @@
 import { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TextStyle,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColores } from '@/theme/colores';
@@ -103,7 +113,77 @@ export function Fila({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   );
 }
 
+export function Campo({
+  etiqueta,
+  ayuda,
+  error,
+  ...props
+}: TextInputProps & { etiqueta: string; ayuda?: string; error?: string | null }) {
+  const c = useColores();
+  return (
+    <View style={{ gap: 4, flex: 1 }}>
+      <Texto variante="secundario">{etiqueta}</Texto>
+      <TextInput
+        placeholderTextColor={c.textoSecundario}
+        accessibilityLabel={etiqueta}
+        {...props}
+        style={[
+          estilos.campo,
+          { color: c.texto, borderColor: error ? c.rojo : c.borde, backgroundColor: c.fondo },
+        ]}
+      />
+      {error ? (
+        <Texto variante="secundario" color={c.rojo}>
+          {error}
+        </Texto>
+      ) : ayuda ? (
+        <Texto variante="secundario">{ayuda}</Texto>
+      ) : null}
+    </View>
+  );
+}
+
+export function Boton({
+  texto,
+  onPress,
+  tipo = 'principal',
+  deshabilitado,
+}: {
+  texto: string;
+  onPress: () => void;
+  tipo?: 'principal' | 'secundario' | 'peligro';
+  deshabilitado?: boolean;
+}) {
+  const c = useColores();
+  const fondo = tipo === 'principal' ? c.acento : tipo === 'peligro' ? c.rojo : 'transparent';
+  const colorTexto = tipo === 'principal' ? c.textoSobreAcento : tipo === 'peligro' ? '#FFFFFF' : c.texto;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={deshabilitado}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        estilos.boton,
+        {
+          backgroundColor: fondo,
+          borderColor: tipo === 'secundario' ? c.borde : fondo,
+          opacity: deshabilitado ? 0.4 : pressed ? 0.7 : 1,
+        },
+      ]}>
+      <Text style={{ color: colorTexto, fontSize: 16, fontWeight: '800' }}>{texto}</Text>
+    </Pressable>
+  );
+}
+
 const estilos = StyleSheet.create({
+  campo: { borderWidth: 2, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 18 },
+  boton: {
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
   contenido: { padding: 16, gap: 12, paddingBottom: 32 },
   tarjeta: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
   titulo: { fontSize: 26, fontWeight: '800' },

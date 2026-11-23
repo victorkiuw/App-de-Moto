@@ -1,6 +1,7 @@
+import { router } from 'expo-router';
 import { View } from 'react-native';
 
-import { Aviso, BarraProgreso, Fila, Pantalla, Tarjeta, Texto } from '@/components/ui';
+import { Aviso, BarraProgreso, Boton, Fila, Pantalla, Tarjeta, Texto } from '@/components/ui';
 import { obtenerMoto } from '@/data/moto';
 import { useConsulta } from '@/data/use-db';
 import { estadoTanque } from '@/domain/combustible';
@@ -38,9 +39,10 @@ export default function Cockpit() {
       {!moto.configuracionCompleta && (
         <Aviso titulo="Falta la configuración inicial">
           <Texto>
-            Antes de rodar hay que cargar el odómetro real y cuántos km lleva cada pieza desde su último
-            servicio. El asistente llega en la próxima fase.
+            Antes de rodar hay que cargar el kilometraje y el estado de cada pieza. Si no sabes los km
+            exactos, el asistente los estima por fechas.
           </Texto>
+          <Boton texto="Configurar mi moto" onPress={() => router.push('/configuracion')} />
         </Aviso>
       )}
 

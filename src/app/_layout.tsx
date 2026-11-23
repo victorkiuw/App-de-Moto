@@ -32,6 +32,7 @@ export default function RootLayout() {
           <Tabs.Screen name="salud" options={{ title: 'Salud', tabBarIcon: icono('🔧') }} />
           <Tabs.Screen name="historial" options={{ title: 'Historial', tabBarIcon: icono('📊') }} />
           <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icono('⚙️') }} />
+          <Tabs.Screen name="configuracion" options={{ href: null, title: 'Configuración inicial' }} />
         </Tabs>
       </SQLiteProvider>
     </SafeAreaProvider>
