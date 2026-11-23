@@ -71,8 +71,8 @@ export async function registrarLecturas(db: Db, lecturas: LecturaGps[]): Promise
     const { estado, puntos } = procesarLecturas(previo, lecturas, params);
     for (const p of puntos) {
       await db.runAsync(
-        `INSERT INTO punto_gps (viaje_id, timestamp, lat, lon, altitud_m, precision_m, velocidad_kmh, contado)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO punto_gps (viaje_id, timestamp, lat, lon, altitud_m, precision_m, velocidad_kmh, contado, motivo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           estado.viajeId,
           p.lectura.timestamp,
@@ -82,6 +82,7 @@ export async function registrarLecturas(db: Db, lecturas: LecturaGps[]): Promise
           p.lectura.precisionM,
           p.velocidadKmh,
           p.contado ? 1 : 0,
+          p.motivo,
         ],
       );
     }
@@ -111,6 +112,10 @@ export async function terminarRastreo(db: Db): Promise<Viaje | null> {
           }
         : undefined,
     });
+    if (estado?.diag) {
+      await db.runAsync('UPDATE viaje SET diagnostico_json = ? WHERE id = ?', [JSON.stringify(estado.diag), viaje.id]);
+      cerrado = { ...cerrado, diagnostico: estado.diag };
+    }
   }
   await db.runAsync('DELETE FROM rastreo_estado WHERE id = 1', []);
   return cerrado;

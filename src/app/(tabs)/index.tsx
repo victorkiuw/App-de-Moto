@@ -16,7 +16,7 @@ import {
   formatearUsd,
 } from '@/domain/formato';
 import { bsAUsd, costoCombustibleBs } from '@/domain/moneda';
-import { sinSenal } from '@/domain/rastreo';
+import { resumenDiagnostico, sinSenal } from '@/domain/rastreo';
 import { PermisoGpsError } from '@/gps/servicio';
 import { useRodada } from '@/gps/use-rodada';
 import { useColores } from '@/theme/colores';
@@ -75,6 +75,10 @@ export default function Cockpit() {
                 `Gasolina: ${formatearLitros(v.litrosConsumidos)}${v.costoBs != null ? ` (${formatearBs(v.costoBs)})` : ''}`,
                 `Velocidad máxima: ${formatearNumero(v.velocidadMaximaKmh, 0)} km/h`,
               ];
+              if (v.diagnostico) {
+                const d = resumenDiagnostico(v.diagnostico);
+                lineas.push('', d.linea, ...d.avisos.map((a) => `⚠ ${a}`));
+              }
               if (empeoradas.length) {
                 lineas.push('', 'Piezas que cambiaron de color:');
                 for (const p of empeoradas) lineas.push(`• ${p.nombre}: ${p.estado === 'VENCIDO' ? 'VENCIDA' : 'en alerta'}`);

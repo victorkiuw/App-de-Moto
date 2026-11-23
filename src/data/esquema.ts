@@ -134,6 +134,14 @@ CREATE TABLE rastreo_estado (
 );
 `,
   },
+  {
+    // v0.2.1: diagnóstico del GPS. Se guardan también las lecturas descartadas, con su motivo.
+    version: 3,
+    sql: `
+ALTER TABLE punto_gps ADD COLUMN motivo TEXT;
+ALTER TABLE viaje ADD COLUMN diagnostico_json TEXT;
+`,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version;

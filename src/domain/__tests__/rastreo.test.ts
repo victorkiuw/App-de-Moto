@@ -1,5 +1,5 @@
 import { FILTRO_POR_DEFECTO, LecturaGps } from '../filtro-gps';
-import { estadoInicial, procesarLecturas, sinSenal } from '../rastreo';
+import { DIAG_VACIO, estadoInicial, procesarLecturas, resumenDiagnostico, sinSenal } from '../rastreo';
 
 /** Genera lecturas en línea recta hacia el norte a velocidad constante. */
 function trayecto(opts: {
@@ -75,11 +75,13 @@ describe('procesarLecturas', () => {
     expect(estado.distanciaKm - antes).toBeCloseTo(0.18, 3);
   });
 
-  it('ignora lecturas imprecisas y no las guarda como puntos', () => {
+  it('ignora lecturas imprecisas, pero las guarda marcadas para el diagnóstico', () => {
     const l = trayecto({ n: 10, cadaS: 2, kmh: 40 });
     l[4] = { ...l[4], precisionM: 80 };
     const { estado, puntos } = procesarLecturas(estadoInicial(1), l, FILTRO_POR_DEFECTO);
-    expect(puntos).toHaveLength(9);
+    expect(puntos).toHaveLength(10);
+    expect(puntos[4]).toMatchObject({ contado: false, motivo: 'PRECISION' });
+    expect(estado.diag).toMatchObject({ lecturas: 10, aceptadas: 8, descartePrecision: 1 });
     // La distancia total no cambia: el tramo se mide desde la lectura 3 a la 5
     expect(estado.distanciaKm).toBeCloseTo((9 * 2 * 40) / 3600, 2);
   });
@@ -117,11 +119,72 @@ describe('procesarLecturas', () => {
   });
 });
 
+describe('precisión relajada', () => {
+  it('no pierde el arranque mientras el GPS agarra señal (precisión 35–45 m)', () => {
+    // 60 s a 30 km/h con precisión mala, luego 60 s con precisión buena
+    const malas = trayecto({ n: 31, cadaS: 2, kmh: 30, precisionM: 40 });
+    const ult = malas[malas.length - 1];
+    const buenas = trayecto({ desdeLat: ult.lat + 16.67 / 111_195, t0: ult.timestamp + 2000, n: 30, cadaS: 2, kmh: 30 });
+    const { estado } = procesarLecturas(estadoInicial(1), [...malas, ...buenas], FILTRO_POR_DEFECTO);
+    // Total real: 60 tramos de 16,67 m = 1 km. Con el filtro estricto se perdía casi la mitad.
+    expect(estado.distanciaKm).toBeGreaterThan(0.95);
+    expect(estado.distanciaKm).toBeLessThan(1.01);
+    expect(estado.diag.relajadas).toBeGreaterThan(0);
+  });
+
+  it('parado bajo techo con precisión mala no inventa kilómetros', () => {
+    // 5 min parado, el GPS "baila" ±30 m con precisión 45 m y sin velocidad reportada
+    const l: LecturaGps[] = Array.from({ length: 150 }, (_, i) => ({
+      lat: 10 + ((i * 7919) % 61 - 30) / 111_195,
+      lon: -66 + ((i * 104729) % 61 - 30) / 111_195,
+      timestamp: i * 2000,
+      precisionM: 45,
+      velocidadMs: null,
+    }));
+    const { estado } = procesarLecturas(estadoInicial(1), l, FILTRO_POR_DEFECTO);
+    expect(estado.distanciaKm).toBeLessThan(0.05);
+  });
+
+  it('las lecturas con precisión peor que 50 m nunca cuentan', () => {
+    const l = trayecto({ n: 30, cadaS: 2, kmh: 40, precisionM: 70 });
+    const { estado } = procesarLecturas(estadoInicial(1), l, FILTRO_POR_DEFECTO);
+    expect(estado.distanciaKm).toBe(0);
+    expect(estado.diag.descartePrecision).toBe(30);
+  });
+
+  it('registra el hueco más largo entre lecturas', () => {
+    const a = trayecto({ n: 5, cadaS: 2, kmh: 40 });
+    const b = trayecto({ t0: 8000 + 45_000, n: 5, cadaS: 2, kmh: 40, desdeLat: 10.01 });
+    const { estado } = procesarLecturas(estadoInicial(1), [...a, ...b], FILTRO_POR_DEFECTO);
+    expect(estado.diag.huecoMaximoS).toBe(45);
+  });
+
+  it('acepta estados guardados por la versión anterior (sin diagnóstico)', () => {
+    const viejo = { ...estadoInicial(1) } as Partial<ReturnType<typeof estadoInicial>>;
+    delete viejo.diag;
+    const { estado } = procesarLecturas(viejo as ReturnType<typeof estadoInicial>, trayecto({ n: 3, cadaS: 2, kmh: 40 }), FILTRO_POR_DEFECTO);
+    expect(estado.diag.lecturas).toBe(3);
+  });
+});
+
 describe('sinSenal', () => {
   it('detecta cuando no llegan lecturas', () => {
     const e = { ...estadoInicial(1), ultimaLecturaTs: 1000 };
     expect(sinSenal(e, 5000)).toBe(false);
     expect(sinSenal(e, 30_000)).toBe(true);
     expect(sinSenal(null, 0)).toBe(true);
+  });
+});
+
+describe('resumenDiagnostico', () => {
+  it('rodada sana', () => {
+    const r = resumenDiagnostico({ ...DIAG_VACIO, lecturas: 100, aceptadas: 80, descarteParado: 15, descartePrecision: 5, huecoMaximoS: 3 });
+    expect(r.linea).toBe('GPS: 100 lecturas · 95 % útiles · hueco máximo 3 s');
+    expect(r.avisos).toHaveLength(0);
+  });
+  it('avisa si el sistema frenó el GPS o hubo mucha imprecisión', () => {
+    const r = resumenDiagnostico({ ...DIAG_VACIO, lecturas: 100, aceptadas: 50, descartePrecision: 40, huecoMaximoS: 95 });
+    expect(r.avisos).toHaveLength(2);
+    expect(r.avisos[0]).toContain('95 s');
   });
 });

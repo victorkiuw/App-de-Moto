@@ -100,3 +100,17 @@ it('cancelar descarta el viaje sin tocar el odómetro', async () => {
 it('sin rodada iniciada, las lecturas se ignoran', async () => {
   expect(await registrarLecturas(db, tramo(0, 5))).toBeNull();
 });
+
+it('guarda el diagnóstico en el viaje y los puntos descartados con su motivo', async () => {
+  await comenzarRastreo(db);
+  const l = tramo(0, 11);
+  l[5] = { ...l[5], precisionM: 90 };
+  await registrarLecturas(db, l);
+  const fin = await terminarRastreo(db);
+  expect(fin?.diagnostico).toMatchObject({ lecturas: 11, descartePrecision: 1 });
+  const [guardado] = await listarViajes(db);
+  expect(guardado.diagnostico?.lecturas).toBe(11);
+  const puntos = await obtenerPuntos(db, guardado.id);
+  expect(puntos).toHaveLength(11);
+  expect(puntos[5]).toMatchObject({ contado: false, motivo: 'PRECISION' });
+});

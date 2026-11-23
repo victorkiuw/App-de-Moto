@@ -3,6 +3,7 @@ import { ahoraIso, Db } from './db';
 import { obtenerMoto } from './moto';
 import { litrosConsumidos } from '../domain/combustible';
 import { costoCombustibleBs } from '../domain/moneda';
+import type { DiagnosticoGps, MotivoPunto } from '../domain/rastreo';
 
 export type EstadoViaje = 'EN_CURSO' | 'FINALIZADO' | 'DESCARTADO';
 export type OrigenViaje = 'GPS' | 'MANUAL';
@@ -26,6 +27,8 @@ export interface Viaje {
   odometroInicioKm: number | null;
   odometroFinKm: number | null;
   notas: string | null;
+  /** Cómo se comportó el GPS (solo rodadas GPS desde la v0.2.1). */
+  diagnostico: DiagnosticoGps | null;
 }
 
 interface FilaViaje {
@@ -47,6 +50,16 @@ interface FilaViaje {
   odometro_inicio_km: number | null;
   odometro_fin_km: number | null;
   notas: string | null;
+  diagnostico_json?: string | null;
+}
+
+function leerDiagnostico(json: string | null | undefined): DiagnosticoGps | null {
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as DiagnosticoGps;
+  } catch {
+    return null;
+  }
 }
 
 const mapear = (f: FilaViaje): Viaje => ({
@@ -68,6 +81,7 @@ const mapear = (f: FilaViaje): Viaje => ({
   odometroInicioKm: f.odometro_inicio_km,
   odometroFinKm: f.odometro_fin_km,
   notas: f.notas,
+  diagnostico: leerDiagnostico(f.diagnostico_json),
 });
 
 export async function obtenerViaje(db: Db, id: number): Promise<Viaje | null> {
@@ -106,6 +120,8 @@ export interface PuntoNuevo {
   velocidadKmh: number | null;
   /** true si este punto sumó distancia al odómetro. */
   contado: boolean;
+  /** Por qué se aceptó o descartó (null en puntos anteriores a la v0.2.1). */
+  motivo?: MotivoPunto | null;
 }
 
 export async function agregarPuntos(db: Db, viajeId: number, puntos: PuntoNuevo[]): Promise<void> {
@@ -135,6 +151,7 @@ export async function obtenerPuntos(db: Db, viajeId: number): Promise<PuntoGps[]
     precision_m: number | null;
     velocidad_kmh: number | null;
     contado: number;
+    motivo: MotivoPunto | null;
   }>('SELECT * FROM punto_gps WHERE viaje_id = ? ORDER BY timestamp', [viajeId]);
   return filas.map((f) => ({
     id: f.id,
@@ -145,6 +162,7 @@ export async function obtenerPuntos(db: Db, viajeId: number): Promise<PuntoGps[]
     precisionM: f.precision_m,
     velocidadKmh: f.velocidad_kmh,
     contado: f.contado === 1,
+    motivo: f.motivo,
   }));
 }
 
