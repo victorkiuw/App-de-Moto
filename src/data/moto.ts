@@ -105,6 +105,11 @@ export interface ConfiguracionInicial {
   kmDesdeServicioPorPieza: Record<string, number>;
   /** Fecha (aaaa-mm-dd) del último servicio de cada pieza, si se conoce. */
   fechaServicioPorPieza?: Record<string, string>;
+  /**
+   * Intervalo propio de cada pieza (p. ej. un caucho que dura más que el catálogo).
+   * `null` vuelve al de fábrica; las piezas omitidas no se tocan.
+   */
+  intervaloPorPieza?: Record<string, number | null>;
 }
 
 /**
@@ -114,6 +119,11 @@ export interface ConfiguracionInicial {
 export async function aplicarConfiguracionInicial(db: Db, c: ConfiguracionInicial): Promise<void> {
   const odo = c.odometroActualKm;
   if (!Number.isFinite(odo) || odo < 0) throw new Error('Odómetro inválido.');
+  for (const [id, km] of Object.entries(c.intervaloPorPieza ?? {})) {
+    if (km != null && (!Number.isFinite(km) || km <= 0)) {
+      throw new Error(`El intervalo de ${id} debe ser mayor que 0.`);
+    }
+  }
   const ahora = ahoraIso();
 
   await db.withTransactionAsync(async () => {
@@ -135,6 +145,12 @@ export async function aplicarConfiguracionInicial(db: Db, c: ConfiguracionInicia
       const kmDesde = Math.max(0, c.kmDesdeServicioPorPieza[id] ?? 0);
       const odoCambio = Math.max(0, odo - kmDesde);
       const fecha = c.fechaServicioPorPieza?.[id] ?? null;
+      if (c.intervaloPorPieza && id in c.intervaloPorPieza) {
+        await db.runAsync(
+          'UPDATE pieza_monitoreo SET intervalo_km = COALESCE(?, intervalo_km_fabrica) WHERE id = ?',
+          [c.intervaloPorPieza[id], id],
+        );
+      }
       await db.runAsync(
         `UPDATE pieza_monitoreo SET odometro_ultimo_cambio_km = ?, fecha_ultimo_cambio = ?,
                 ultimo_estado_notificado = 'OK' WHERE id = ?`,

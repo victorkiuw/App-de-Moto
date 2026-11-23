@@ -43,7 +43,14 @@ export default function Configuracion() {
   const hoy = hoyIsoLocal();
 
   const [cargado, setCargado] = useState(false);
-  const [intervalos, setIntervalos] = useState<Record<string, number>>({});
+  /** Intervalo de fábrica de cada pieza. */
+  const [fabrica, setFabrica] = useState<Record<string, number>>(() =>
+    Object.fromEntries(CATALOGO_SBR150.map((p) => [p.id, p.intervaloKm])),
+  );
+  /** Intervalo que el usuario tiene (o escribe) para cada pieza, como texto. */
+  const [intervalosTxt, setIntervalosTxt] = useState<Record<string, string>>(() =>
+    Object.fromEntries(CATALOGO_SBR150.map((p) => [p.id, String(p.intervaloKm)])),
+  );
   const [fechaCompra, setFechaCompra] = useState('');
   const [kmSemana, setKmSemana] = useState('350');
   const [paradas, setParadas] = useState<ParadaTexto[]>([]);
@@ -60,7 +67,8 @@ export default function Configuracion() {
   useEffect(() => {
     (async () => {
       const lista = await listarPiezas(db, { soloActivas: false });
-      setIntervalos(Object.fromEntries(lista.map((p) => [p.id, p.intervaloKm])));
+      setFabrica(Object.fromEntries(lista.map((p) => [p.id, p.intervaloKmFabrica])));
+      setIntervalosTxt(Object.fromEntries(lista.map((p) => [p.id, txtNum(p.intervaloKm)])));
       const { asistente: a } = await obtenerAjustes(db);
       if (a) {
         setFechaCompra(txtFecha(a.fechaCompra));
@@ -117,8 +125,13 @@ export default function Configuracion() {
     const odometroSugerido =
       lk != null && lf && ritmo ? estimarOdometro(lk, lf, hoy, ritmo, datosBase.paradas) : null;
 
+    const intervalos: Record<string, number> = {};
     const entradas: Record<string, EntradaPieza> = {};
     for (const p of CATALOGO_SBR150) {
+      const iv = parsearNumero(intervalosTxt[p.id] ?? '');
+      if (iv == null || iv <= 0) errores[`i_${p.id}`] = 'Escribe un intervalo mayor que 0';
+      intervalos[p.id] = iv != null && iv > 0 ? iv : fabrica[p.id];
+
       const t = piezas[p.id];
       const e: EntradaPieza = { modo: t.modo };
       if (t.modo === 'FECHA') {
@@ -135,18 +148,27 @@ export default function Configuracion() {
       entradas[p.id] = e;
     }
 
-    return { errores, datosBase, entradas, odometroSugerido, lecturaKm: lk, lecturaFecha: lf, kmTanqueo: tanq ?? 0 };
-  }, [fechaCompra, kmSemana, paradas, odometro, kmTanqueo, lecturaKm, lecturaFecha, piezas, hoy]);
+    return {
+      errores,
+      datosBase,
+      entradas,
+      intervalos,
+      odometroSugerido,
+      lecturaKm: lk,
+      lecturaFecha: lf,
+      kmTanqueo: tanq ?? 0,
+    };
+  }, [fechaCompra, kmSemana, paradas, odometro, kmTanqueo, lecturaKm, lecturaFecha, piezas, intervalosTxt, fabrica, hoy]);
 
   const resultados = useMemo(
     () =>
       Object.fromEntries(
         CATALOGO_SBR150.map((p) => [
           p.id,
-          calcularPieza(v.entradas[p.id], intervalos[p.id] ?? p.intervaloKm, v.datosBase, hoy),
+          calcularPieza(v.entradas[p.id], v.intervalos[p.id], v.datosBase, hoy),
         ]),
       ),
-    [v, intervalos, hoy],
+    [v, hoy],
   );
 
   const hayErrores = Object.keys(v.errores).length > 0;
@@ -170,6 +192,10 @@ export default function Configuracion() {
         fechaLecturaCongelada: v.lecturaFecha,
         piezas: v.entradas,
       };
+      const intervaloPorPieza: Record<string, number | null> = {};
+      for (const [id, km] of Object.entries(v.intervalos)) {
+        intervaloPorPieza[id] = km === fabrica[id] ? null : km;
+      }
       const kmDesde: Record<string, number> = {};
       const fechas: Record<string, string> = {};
       for (const [id, r] of Object.entries(resultados)) {
@@ -181,6 +207,7 @@ export default function Configuracion() {
         kmDesdeUltimoTanqueo: v.kmTanqueo,
         kmDesdeServicioPorPieza: kmDesde,
         fechaServicioPorPieza: fechas,
+        intervaloPorPieza,
       });
       await guardarAjustes(db, { asistente: datos });
       invalidar();
@@ -316,7 +343,12 @@ export default function Configuracion() {
         return (
           <Tarjeta key={p.id} style={{ borderLeftWidth: 6, borderLeftColor: color }}>
             <Texto variante="subtitulo">{p.nombre}</Texto>
-            <Texto variante="secundario">Cada {formatearKm(intervalos[p.id] ?? p.intervaloKm, 0)}</Texto>
+            <CampoIntervalo
+              texto={intervalosTxt[p.id] ?? ''}
+              fabricaKm={fabrica[p.id]}
+              error={v.errores[`i_${p.id}`]}
+              onChange={(x) => setIntervalosTxt((prev) => ({ ...prev, [p.id]: x }))}
+            />
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {MODOS.map((m) => (
                 <Chip key={m.modo} texto={m.texto} activo={t.modo === m.modo} onPress={() => cambiarPieza(p.id, { modo: m.modo })} />
@@ -363,5 +395,40 @@ export default function Configuracion() {
       <Boton texto={guardando ? 'Guardando…' : 'Guardar configuración'} onPress={guardar} deshabilitado={guardando} />
       <Boton texto="Cancelar" tipo="secundario" onPress={() => router.back()} />
     </Pantalla>
+  );
+}
+
+/** Intervalo de servicio editable, con la referencia de fábrica y un botón para volver a ella. */
+function CampoIntervalo({
+  texto,
+  fabricaKm,
+  error,
+  onChange,
+}: {
+  texto: string;
+  fabricaKm: number;
+  error?: string;
+  onChange: (texto: string) => void;
+}) {
+  const valor = parsearNumero(texto);
+  const personalizado = valor != null && valor !== fabricaKm;
+  return (
+    <View style={{ gap: 6 }}>
+      <Campo
+        etiqueta="Intervalo de servicio (km)"
+        keyboardType="decimal-pad"
+        value={texto}
+        onChangeText={onChange}
+        error={error}
+        ayuda={
+          personalizado
+            ? `Personalizado. De fábrica: ${formatearKm(fabricaKm, 0)}`
+            : `De fábrica: ${formatearKm(fabricaKm, 0)}. Cámbialo si a tu moto le dura distinto.`
+        }
+      />
+      {personalizado && (
+        <Boton texto="Volver al de fábrica" tipo="secundario" onPress={() => onChange(String(fabricaKm))} />
+      )}
+    </View>
   );
 }

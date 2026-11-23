@@ -95,6 +95,22 @@ describe('configuración inicial', () => {
     expect(await listarHistorialServicios(db, { incluirIniciales: true })).toHaveLength(18);
   });
 
+  it('aplica intervalos propios y puede volver al de fábrica', async () => {
+    const base = { odometroActualKm: 45000, kmDesdeUltimoTanqueo: 0, kmDesdeServicioPorPieza: { TYRE_R: 21320 } };
+    await aplicarConfiguracionInicial(db, { ...base, intervaloPorPieza: { TYRE_R: 30000 } });
+    const caucho = await obtenerPieza(db, 'TYRE_R');
+    expect(caucho).toMatchObject({ intervaloKm: 30000, intervaloKmFabrica: 18000, estado: 'OK' });
+    expect(caucho?.porcentaje).toBeCloseTo(71.07, 1);
+    // Sin tocarlo en otra configuración, se conserva
+    await aplicarConfiguracionInicial(db, base);
+    expect((await obtenerPieza(db, 'TYRE_R'))?.intervaloKm).toBe(30000);
+    await aplicarConfiguracionInicial(db, { ...base, intervaloPorPieza: { TYRE_R: null } });
+    expect((await obtenerPieza(db, 'TYRE_R'))?.intervaloKm).toBe(18000);
+    await expect(
+      aplicarConfiguracionInicial(db, { ...base, intervaloPorPieza: { TYRE_R: 0 } }),
+    ).rejects.toThrow('mayor que 0');
+  });
+
   it('repetirla reemplaza los registros iniciales', async () => {
     const c = { odometroActualKm: 100, kmDesdeUltimoTanqueo: 0, kmDesdeServicioPorPieza: {} };
     await aplicarConfiguracionInicial(db, c);

@@ -105,10 +105,36 @@ it('al rehacerla, precarga lo guardado', async () => {
   await fireEvent.press(screen.getByText('Guardar configuración'));
   await waitFor(() => expect(mockRouter.replace).toHaveBeenCalled());
   await screen.unmount();
+  (mockRouter.replace as jest.Mock).mockClear();
 
   await render(<Configuracion />);
   expect(await screen.findByDisplayValue('18/10/2024')).toBeTruthy();
   expect(screen.getByDisplayValue('45000')).toBeTruthy();
+});
+
+it('intervalo propio del caucho trasero, y volver al de fábrica', async () => {
+  const iCaucho = CATALOGO_SBR150.findIndex((p) => p.id === 'TYRE_R');
+  await render(<Configuracion />);
+  await screen.findByText('Configuración inicial');
+  await escribir('Fecha de compra (0 km)', '18/10/2024');
+  await escribir('Kilometraje de hoy', '45000');
+
+  await escribir('Intervalo de servicio (km)', '30000', iCaucho);
+  expect(screen.getByText('Personalizado. De fábrica: 18.000 km')).toBeTruthy();
+  await fireEvent.press(screen.getByText('Guardar configuración'));
+  await waitFor(() => expect(mockRouter.replace).toHaveBeenCalled());
+  expect((await obtenerPieza(mockDb, 'TYRE_R'))?.intervaloKm).toBe(30000);
+  // Las demás no se tocaron
+  expect((await obtenerPieza(mockDb, 'TYRE_F'))?.intervaloKm).toBe(25000);
+  await screen.unmount();
+
+  // Al rehacerla aparece el 30.000 y se puede volver al de fábrica
+  await render(<Configuracion />);
+  expect((await screen.findAllByLabelText('Intervalo de servicio (km)'))[iCaucho].props.value).toBe('30000');
+  await fireEvent.press(screen.getByText('Volver al de fábrica'));
+  await fireEvent.press(screen.getByText('Guardar configuración'));
+  await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledTimes(2));
+  expect((await obtenerPieza(mockDb, 'TYRE_R'))?.intervaloKm).toBe(18000);
 });
 
 it('no guarda si faltan datos', async () => {
